@@ -45,11 +45,8 @@ GREEN_LED_PIN = "LED"  # onboard Pico LED
 # --- Local Access Point ---
 # This AP name is shown to the user before Wi-Fi is configured on the Pico.
 AP_SSID = "SNARE_Device_101"
-AP_PASSWORD = "12345678"
-WIRELESS_COUNTRY = "US"
-AP_CHANNEL = 6
 
 # --- Encrypted Storage ---
 # This local storage secret is used to encrypt scan data before it sits on the Pico.
 # This secret should be changed before deploying production hardware.
-STORAGE_SECRET = "secret"
+STORAGE_SECRET = "  secret"

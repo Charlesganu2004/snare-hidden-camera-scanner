@@ -35,9 +35,6 @@ green_led = Pin(config.GREEN_LED_PIN, Pin.OUT) # onboard Pico LED
 # --- Constants ---
 DATA_LIMIT = 50
 ROTATION_TIME = 80  # seconds for full 360 degrees rotation
-BOOT_SETUP_HOLD_TIME = 2
-SETUP_HOLD_TIME = 10
-STOP_HOLD_TIME = 30
 
 # --- Global stop flag ---
 stop_flag = False
@@ -69,24 +66,6 @@ def build_scan_record(data, ultra_results, ir_results):
         "ir": ir_results,
     }
 
-
-def boot_setup_requested():
-    # Holding the button during boot opens setup mode immediately, without waiting for the first scan.
-    if not button.pressed():
-        return False
-
-    status("Boot setup hold detected. Keep holding the button to open setup mode.")
-    green_on()
-    start = time.time()
-    while button.pressed():
-        if time.time() - start >= BOOT_SETUP_HOLD_TIME:
-            status("Boot setup mode requested.")
-            return True
-        time.sleep(0.1)
-
-    green_off()
-    return False
-
 # --- LED helper functions ---
 def red_on(): red_led.value(1)
 def red_off(): red_led.value(0)
@@ -104,58 +83,22 @@ def flash_green(times=1, duration=0.5):
         green_on(); time.sleep(duration)
         green_off(); time.sleep(duration)
 
-
-def trigger_stop():
-    global stop_flag
-    stop_flag = True
-    status("STOP triggered by user.")
-    for _ in range(3):
-        red_on(); green_on(); time.sleep(0.1)
-        red_off(); green_off(); time.sleep(0.1)
-
-
 # --- Stop button check ---
 def check_stop():
+    global stop_flag
     if button.pressed():
         # A very long hold is reserved for emergency stop so shorter presses can still trigger scan and setup actions.
         start = time.time()
         while button.pressed():
             time.sleep(0.1)
-            if time.time() - start >= STOP_HOLD_TIME:
-                trigger_stop()
+            if time.time() - start >= 30:
+                stop_flag = True
+                print("STOP triggered by user!")
+                for _ in range(3):
+                    red_on(); green_on(); time.sleep(0.1)
+                    red_off(); green_off(); time.sleep(0.1)
                 return True
     return False
-
-
-def check_scan_mode_request():
-    if not button.pressed():
-        return None
-
-    press_start = time.time()
-    setup_indicator_on = False
-
-    while button.pressed():
-        elapsed = time.time() - press_start
-        if elapsed >= SETUP_HOLD_TIME and not setup_indicator_on:
-            # The green LED turns on once the setup-mode threshold is reached during a scan.
-            green_on()
-            setup_indicator_on = True
-
-        time.sleep(0.1)
-
-        if elapsed >= STOP_HOLD_TIME:
-            green_off()
-            trigger_stop()
-            return "stop"
-
-    if setup_indicator_on:
-        green_off()
-
-    if time.time() - press_start >= SETUP_HOLD_TIME:
-        status("Setup mode requested during scan.")
-        return "setup"
-
-    return None
 
 # --- Scanning function ---
 def scan_with_rotation():
@@ -165,26 +108,20 @@ def scan_with_rotation():
     # Flash green LED for 5 seconds at start
     start_time = time.time()
     while time.time() - start_time < 5:
-        button_action = check_scan_mode_request()
-        if stop_flag or button_action == "stop":
-            return "stop"
-        if button_action == "setup":
-            return "setup"
+        if stop_flag or check_stop():
+            return
         green_on(); time.sleep(0.5)
         green_off(); time.sleep(0.5)
 
     status("Motor starting rotation.")
     red_on()               # solid red during scan
-    motor.set_speed_percent(60)  # slow rotation
+    motor.set_speed_percent(80)  # slow rotation
     start = time.time()
 
     try:
         while time.time() - start < ROTATION_TIME:
-            button_action = check_scan_mode_request()
-            if stop_flag or button_action == "stop":
-                return "stop"
-            if button_action == "setup":
-                return "setup"
+            if stop_flag or check_stop():
+                return
 
             # --- Read IR sensors ---
             # Both IR arrays are sampled first so heat confirmation can be used while evaluating ultrasonic hits.
@@ -220,17 +157,18 @@ def scan_with_rotation():
 # --- Long press action: Wi-Fi + Bluetooth setup ---
 def long_press_action():
     global stop_flag
-    status("Long press detected: activating Bluetooth LE and the setup/download portal.")
-    bluetooth_started = bluetooth.start()
-    if bluetooth_started:
-        status("Bluetooth LE advertising started as '{}'.".format(config.AP_SSID))
-    else:
-        status("Bluetooth LE did not start; use the Wi-Fi network '{}'.".format(config.AP_SSID))
-    green_on()
+    status("Long press detected: activating Bluetooth and the setup/download portal.")
+    bluetooth.start()
+
+    blink_state = {"last_toggle": 0, "red_on": False}
 
     def setup_heartbeat():
-        # The green LED stays on solid while the setup portal is active.
-        green_on()
+        # The red LED blinks while the setup portal is waiting so the user knows the device is in config mode.
+        now = time.time()
+        if now - blink_state["last_toggle"] >= 0.5:
+            blink_state["red_on"] = not blink_state["red_on"]
+            red_led.value(1 if blink_state["red_on"] else 0)
+            blink_state["last_toggle"] = now
 
     def load_download_data():
         return Storage.load()
@@ -246,8 +184,6 @@ def long_press_action():
         clear_data_callback=clear_download_data,
     )
     red_off()
-    green_off()
-    bluetooth.stop()
 
     if stop_flag:
         status("Setup/download portal closed because execution was stopped.")
@@ -256,14 +192,8 @@ def long_press_action():
     status("Setup/download portal closed.")
 
 # --- Boot: initial scan ---
-if boot_setup_requested():
-    long_press_action()
-else:
-    green_off()
-    status("Device powering on: initial scan")
-    boot_result = scan_with_rotation()
-    if boot_result == "setup" and not stop_flag:
-        long_press_action()
+status("Device powering on: initial scan")
+scan_with_rotation()
 
 # --- Main loop ---
 while True:
@@ -276,24 +206,14 @@ while True:
 
     if button.pressed():
         press_start = time.time()
-        setup_indicator_on = False
         while button.pressed():
-            if time.time() - press_start >= 10 and not setup_indicator_on:
-                # The green LED turns on once the setup-mode hold threshold has been reached.
-                green_on()
-                setup_indicator_on = True
             time.sleep(0.1)
         press_duration = time.time() - press_start
 
         if press_duration >= 10:
             long_press_action()  # Long press -> Wi-Fi + Bluetooth
         elif press_duration >= 5:
-            green_off()
-            scan_result = scan_with_rotation() # Short press -> scan again
-            if scan_result == "setup" and not stop_flag:
-                long_press_action()
-        else:
-            green_off()
+            scan_with_rotation() # Short press -> scan again
 
     check_stop()
     time.sleep(0.2)

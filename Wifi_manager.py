@@ -96,7 +96,7 @@ def _send_html(client, body, status="200 OK"):
 
 
 def _send_redirect(client, location):
-    # Redirects help phones and laptops land on the local setup page even if they request another URL first.
+    # Redirects help phones land on the setup page even if they probe another captive-portal URL first.
     response = (
         "HTTP/1.1 302 Found\r\n"
         "Location: {}\r\n"
@@ -108,7 +108,7 @@ def _send_redirect(client, location):
 
 def _send_json_download(client, payload, file_name="snare_scan_data.json"):
     # JSON is returned as a downloadable attachment so the connected phone can save the scan results directly.
-    body = json.dumps(payload, indent=2)
+    body = _json_dumps(payload, pretty=True)
     response = (
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: application/json; charset=utf-8\r\n"
@@ -119,6 +119,44 @@ def _send_json_download(client, payload, file_name="snare_scan_data.json"):
     client.send(response.encode("utf-8"))
 
 
+def _json_dumps(payload, pretty=False):
+    try:
+        if pretty:
+            return json.dumps(payload, indent=2)
+        return json.dumps(payload)
+    except TypeError:
+        return json.dumps(payload)
+
+
+def _send_text_download(client, body, content_type, file_name):
+    response = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: {}\r\n"
+        "Content-Disposition: attachment; filename=\"{}\"\r\n"
+        "Connection: close\r\n\r\n"
+        "{}"
+    ).format(content_type, file_name, body)
+    client.send(response.encode("utf-8"))
+
+
+def _send_json(client, payload):
+    body = _json_dumps(payload, pretty=True)
+    response = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/json; charset=utf-8\r\n"
+        "Connection: close\r\n\r\n"
+        "{}"
+    ).format(body)
+    client.send(response.encode("utf-8"))
+
+
+def _write_usb_json_export(payload, file_name):
+    body = _json_dumps(payload, pretty=True)
+    with open(file_name, "w") as f:
+        f.write(body)
+    return file_name, len(body)
+
+
 def _serial_help():
     return (
         "USB setup commands:\n"
@@ -127,7 +165,16 @@ def _serial_help():
         "  password <wifi-password>\n"
         "  save\n"
         "  status\n"
-        "  download\n"
+        "  download   (USB JSON data export)\n"
+        "  import     (USB JSON data export)\n"
+        "  export     (write JSON export file on Pico)\n"
+        "  graph      (USB HTML graph export)\n"
+        "  wifi       (open Wi-Fi setup/download portal)\n"
+        "  live\n"
+        "  live on\n"
+        "  live off\n"
+        "  live image\n"
+        "  live download\n"
         "  clear\n"
         "  exit\n"
     )
@@ -143,7 +190,17 @@ def _safe_read_line():
     return line.strip()
 
 
-def _handle_usb_serial(serial_state, status_callback=None, load_data_callback=None, clear_data_callback=None):
+def _handle_usb_serial(
+    serial_state,
+    status_callback=None,
+    load_data_callback=None,
+    clear_data_callback=None,
+    build_graph_callback=None,
+    live_data_callback=None,
+    live_graph_callback=None,
+    set_live_callback=None,
+    enable_exit=True,
+):
     # USB serial commands provide a setup/download fallback when Wi-Fi or BLE discovery is unreliable.
     try:
         readers, _, _ = select.select([sys.stdin], [], [], 0)
@@ -157,9 +214,16 @@ def _handle_usb_serial(serial_state, status_callback=None, load_data_callback=No
     if not line:
         return False
 
-    command, _, argument = line.partition(" ")
+    if ":" in line and (line.split(":", 1)[0].lower() in ("ssid", "password", "pass")):
+        command, argument = line.split(":", 1)
+    else:
+        command, _, argument = line.partition(" ")
     command = command.lower()
     argument = argument.strip()
+    if command.endswith(":"):
+        command = command[:-1]
+    if command == "pass":
+        command = "password"
 
     if command == "help":
         _serial_print(_serial_help())
@@ -168,11 +232,13 @@ def _handle_usb_serial(serial_state, status_callback=None, load_data_callback=No
     if command == "ssid":
         serial_state["ssid"] = argument
         _serial_print("SSID staged as '{}'.".format(argument))
+        _serial_print("Type password: <wifi-password>, then type save.")
         return False
 
     if command == "password":
         serial_state["password"] = argument
         _serial_print("Wi-Fi password staged.")
+        _serial_print("Type save to store the Wi-Fi credentials and connect.")
         return False
 
     if command == "save":
@@ -200,14 +266,82 @@ def _handle_usb_serial(serial_state, status_callback=None, load_data_callback=No
             _serial_print("STA IP: {}".format(wlan.ifconfig()[0]))
         return False
 
-    if command == "download":
+    if command in ("download", "import", "export"):
         payload = load_data_callback() if load_data_callback else []
-        _serial_print("BEGIN-DOWNLOAD")
-        print(json.dumps(payload, indent=2))
+        export_name = getattr(config, "USB_JSON_EXPORT_FILE", "snare_scan_data_export.json")
+        try:
+            export_name, export_size = _write_usb_json_export(payload, export_name)
+            _serial_print("Pico JSON export file created: {} ({} bytes).".format(export_name, export_size))
+        except Exception as exc:
+            _serial_print("Pico JSON export file could not be created: {}".format(exc))
+
+        if command == "export":
+            _serial_print("Use a Pico file browser or mpremote to copy {} from the Pico filesystem.".format(export_name))
+            return False
+
+        _serial_print("USB serial cannot force the computer to save a file by itself.")
+        _serial_print("The JSON file now exists on the Pico as {}.".format(export_name))
+        _serial_print("To save it on this computer, run tools\\download_usb_json.ps1 from PowerShell.")
+        _serial_print("BEGIN-DOWNLOAD snare_scan_data.json")
+        print(_json_dumps(payload, pretty=True))
         _serial_print("END-DOWNLOAD")
         if clear_data_callback:
             clear_data_callback()
             _serial_print("Stored scan data cleared after USB download.")
+        return False
+
+    if command == "graph":
+        if not build_graph_callback:
+            _serial_print("Graph export is not available in this mode.")
+            return False
+        _serial_print("BEGIN-GRAPH-HTML")
+        print(build_graph_callback())
+        _serial_print("END-GRAPH-HTML")
+        _serial_print("Copy the HTML between the graph markers into a .html file to view the circle scan graph.")
+        return False
+
+    if command == "wifi":
+        if serial_state is not None:
+            serial_state["wifi_requested"] = True
+        _serial_print("Wi-Fi setup/download portal requested.")
+        return False
+
+    if command == "live":
+        option = argument.lower()
+        if option in ("on", "start"):
+            if set_live_callback:
+                set_live_callback(True)
+            _serial_print("Live scan terminal output enabled.")
+            return False
+        if option in ("off", "stop"):
+            if set_live_callback:
+                set_live_callback(False)
+            _serial_print("Live scan terminal output disabled.")
+            return False
+
+        if option in ("download", "export"):
+            payload = live_data_callback() if live_data_callback else {}
+            export_name = getattr(config, "LIVE_SCAN_EXPORT_FILE", "snare_live_scan_data.json")
+            try:
+                export_name, export_size = _write_usb_json_export(payload, export_name)
+                _serial_print("Pico live scan JSON file created: {} ({} bytes).".format(export_name, export_size))
+            except Exception as exc:
+                _serial_print("Pico live scan JSON file could not be created: {}".format(exc))
+            _serial_print("BEGIN-LIVE-DOWNLOAD {}".format(export_name))
+            print(_json_dumps(payload, pretty=True))
+            _serial_print("END-LIVE-DOWNLOAD")
+            return False
+
+        if option in ("image", "graph", "scan"):
+            if live_graph_callback:
+                print(live_graph_callback())
+            else:
+                _serial_print("Live scan image is not available in this mode.")
+            return False
+
+        payload = live_data_callback() if live_data_callback else {}
+        _serial_print("LATEST-LIVE-SCAN")
+        print(_json_dumps(payload, pretty=True))
         return False
 
     if command == "clear":
@@ -217,12 +351,38 @@ def _handle_usb_serial(serial_state, status_callback=None, load_data_callback=No
         return False
 
     if command == "exit":
+        if not enable_exit:
+            _serial_print("Exit is only used while the setup portal is open.")
+            return False
         _serial_print("USB setup requested portal exit.")
         return True
 
     _serial_print("Unknown command.")
     _serial_print(_serial_help())
     return False
+
+
+def handle_usb_commands(
+    serial_state,
+    status_callback=None,
+    load_data_callback=None,
+    clear_data_callback=None,
+    build_graph_callback=None,
+    live_data_callback=None,
+    live_graph_callback=None,
+    set_live_callback=None,
+):
+    return _handle_usb_serial(
+        serial_state,
+        status_callback=status_callback,
+        load_data_callback=load_data_callback,
+        clear_data_callback=clear_data_callback,
+        build_graph_callback=build_graph_callback,
+        live_data_callback=live_data_callback,
+        live_graph_callback=live_graph_callback,
+        set_live_callback=set_live_callback,
+        enable_exit=False,
+    )
 
 
 def _build_setup_page(message=""):
@@ -236,7 +396,7 @@ def _build_setup_page(message=""):
   <p>Enter the Wi-Fi name and Wi-Fi password to save them on the Pico and connect the device.</p>
   <p>Use the download button to save the decrypted scan data directly to the connected phone.</p>
   <p>Downloaded scan data is automatically cleared from the Pico after a successful download.</p>
-  <p>If the setup page does not open automatically, browse to <strong>http://192.168.4.1/</strong>.</p>
+  <p>If the page does not open automatically, browse to <strong>http://192.168.4.1/</strong>.</p>
   {notice}
   <form action="/save" method="post">
     <label>Wi-Fi SSID<br><input name="ssid" required></label><br><br>
@@ -246,6 +406,14 @@ def _build_setup_page(message=""):
   <br>
   <form action="/download" method="get">
     <button type="submit">Download Stored Data</button>
+  </form>
+  <br>
+  <form action="/download-graph" method="get">
+    <button type="submit">Download Scan Graph</button>
+  </form>
+  <br>
+  <form action="/download-live" method="get">
+    <button type="submit">Download Live Scan Data</button>
   </form>
   <br>
   <form action="/clear" method="post">
@@ -299,7 +467,18 @@ def connect_wifi(status_callback=None):
     return False
 
 
-def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_data_callback=None, clear_data_callback=None):
+def start_setup(
+    stop_checker=None,
+    exit_checker=None,
+    heartbeat=None,
+    status_callback=None,
+    load_data_callback=None,
+    clear_data_callback=None,
+    build_graph_callback=None,
+    live_data_callback=None,
+    live_graph_callback=None,
+    set_live_callback=None,
+):
     # A temporary AP and lightweight web portal are opened so setup and data download do not require reflashing code.
     network = _get_network_module()
     ap = network.WLAN(network.AP_IF)
@@ -334,7 +513,6 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
             break
         except Exception as exc:
             last_config_error = exc
-
     try:
         ap_name = ap.config("ssid")
     except Exception:
@@ -350,6 +528,8 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
     server.listen(1)
     _status(status_callback, "Connect your phone to the Wi-Fi network '{}' to save Wi-Fi and download scan data.".format(ap_name))
     _status(status_callback, "Setup portal IP address: {}.".format(ap.ifconfig()[0]))
+    _status(status_callback, "Download works directly from the Pico portal. The Pico does not need to join another Wi-Fi network first.")
+    _status(status_callback, "Press the button again to close setup mode.")
     _status(status_callback, "If the phone does not open the page automatically, browse to http://192.168.4.1/.")
     if ap_started_with_password:
         _status(status_callback, "Setup portal password: {}.".format(config.AP_PASSWORD))
@@ -375,12 +555,19 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
             if stop_checker and stop_checker():
                 _status(status_callback, "Wi-Fi setup was cancelled.")
                 return None
+            if exit_checker and exit_checker():
+                _status(status_callback, "Setup mode closed by button press.")
+                return None
 
             if _handle_usb_serial(
                 serial_state,
                 status_callback=status_callback,
                 load_data_callback=load_data_callback,
                 clear_data_callback=clear_data_callback,
+                build_graph_callback=build_graph_callback,
+                live_data_callback=live_data_callback,
+                live_graph_callback=live_graph_callback,
+                set_live_callback=set_live_callback,
             ):
                 _status(status_callback, "USB setup requested portal exit.")
                 return None
@@ -391,8 +578,21 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
                 continue
 
             try:
-                request = client.recv(2048)
-                request_str = request.decode()
+                try:
+                    client.settimeout(1.0)
+                except Exception:
+                    pass
+                try:
+                    request = client.recv(2048)
+                except OSError:
+                    continue
+                if not request:
+                    continue
+
+                try:
+                    request_str = request.decode()
+                except Exception:
+                    continue
                 first_line = request_str.split("\r\n", 1)[0]
                 request_path = "/"
                 if len(first_line.split()) >= 2:
@@ -401,8 +601,6 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
                     request_path = request_path.split("?", 1)[0]
 
                 fields = _parse_request_fields(request)
-
-                # Redirect common captive-portal probes and unknown paths to the local setup page.
                 captive_probe_paths = {
                     "/hotspot-detect.html",
                     "/library/test/success.html",
@@ -441,6 +639,32 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
                     _status(status_callback, "Stored scan data was downloaded to the connected phone and then cleared from the Pico.")
                     continue
 
+                if request_path == "/download-graph":
+                    graph_html = build_graph_callback() if build_graph_callback else "<!doctype html><p>No graph data is available.</p>"
+                    _send_text_download(
+                        client,
+                        graph_html,
+                        "text/html; charset=utf-8",
+                        "snare_scan_graph.html",
+                    )
+                    _status(status_callback, "Scan graph file was downloaded to the connected phone.")
+                    continue
+
+                if request_path in ("/download-live", "/live"):
+                    payload = live_data_callback() if live_data_callback else {}
+                    _send_json_download(
+                        client,
+                        payload,
+                        getattr(config, "LIVE_SCAN_EXPORT_FILE", "snare_live_scan_data.json"),
+                    )
+                    _status(status_callback, "Live scan data was downloaded as JSON.")
+                    continue
+
+                if request_path == "/live.json":
+                    payload = live_data_callback() if live_data_callback else {}
+                    _send_json(client, payload)
+                    continue
+
                 if request_path == "/clear":
                     if clear_data_callback:
                         clear_data_callback()
@@ -458,7 +682,10 @@ def start_setup(stop_checker=None, heartbeat=None, status_callback=None, load_da
 
                 _send_html(client, _build_setup_page())
             finally:
-                client.close()
+                try:
+                    client.close()
+                except Exception:
+                    pass
     finally:
         try:
             server.close()

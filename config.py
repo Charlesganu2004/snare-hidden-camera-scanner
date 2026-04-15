@@ -45,8 +45,34 @@ GREEN_LED_PIN = "LED"  # onboard Pico LED
 # --- Local Access Point ---
 # This AP name is shown to the user before Wi-Fi is configured on the Pico.
 AP_SSID = "SNARE_Device_101"
+AP_PASSWORD = "12345678"
+WIRELESS_COUNTRY = "US"
+AP_CHANNEL = 6
+
+# --- Scan / graph settings ---
+# The scan cycle is set to the intended one minute and thirty second rotation.
+ROTATION_TIME_SECONDS = 90
+SCAN_SAMPLE_INTERVAL_SECONDS = 1
+GRAPH_MAX_DISTANCE_CM = 500
+LIVE_SCAN_FILE = "live_scan.json"
+LIVE_SCAN_EXPORT_FILE = "snare_live_scan_data.json"
+LIVE_SCAN_HISTORY_LIMIT = 120
+LIVE_TERMINAL_GRAPH_ENABLED = True
+LIVE_TERMINAL_GRAPH_INTERVAL_SECONDS = 3
+USB_JSON_EXPORT_FILE = "snare_scan_data_export.json"
+
+# Sensor angles are offsets from the rotating forward scan line. These are based on
+# the current sensor layout image and should be adjusted after final calibration.
+SENSOR_GEOMETRY = {
+    "ultra1": {"label": "Ultrasonic 1", "type": "ultrasonic", "angle_offset": -30},
+    "ultra2": {"label": "Ultrasonic 2", "type": "ultrasonic", "angle_offset": -10},
+    "ultra3": {"label": "Ultrasonic 3", "type": "ultrasonic", "angle_offset": 10},
+    "ultra4": {"label": "Ultrasonic 4", "type": "ultrasonic", "angle_offset": 30},
+    "ir1": {"label": "IR 1", "type": "ir", "angle_offset": -15},
+    "ir2": {"label": "IR 2", "type": "ir", "angle_offset": 15},
+}
 
 # --- Encrypted Storage ---
 # This local storage secret is used to encrypt scan data before it sits on the Pico.
 # This secret should be changed before deploying production hardware.
-STORAGE_SECRET = "  secret"
+STORAGE_SECRET = "secret"

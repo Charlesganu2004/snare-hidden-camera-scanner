@@ -7,10 +7,14 @@
     "python.terminal.activateEnvironment": false,
     "micropico.openOnStart": true,
     "python.analysis.typeshedPaths": [
-        "~/.micropico-stubs/included"
+        "~/.micropico-stubs/included",
+        "C:/Users/Charl/.micropico-stubs/included",
+        "C:/Users/Charl/Downloads/SNARE-CODE/venv/lib/python3.12/site-packages"
     ],
     "python.analysis.extraPaths": [
-        "~/.micropico-stubs/included"
+        "~/.micropico-stubs/included",
+        "C:/Users/Charl/.micropico-stubs/included",
+        "C:/Users/Charl/Downloads/SNARE-CODE/venv/lib/python3.12/site-packages"
     ],
     "cSpell.words": [
         "wlan",
@@ -25,6 +29,9 @@
         "stby",
         "STBY",
         "Pico",
+        "uhashlib",
+        "ubinascii",
+        "ticks_ms",
         "duty_u16",
         "freq",
         "I2C",

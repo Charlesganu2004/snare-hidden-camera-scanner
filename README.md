@@ -1,5 +1,7 @@
 # SNARE: Rotating Hidden-Camera Scanner
 
+**Timeline:** March 2026 to April 2026
+
 SNARE sweeps a room for hidden cameras. A motor turns a sensor head through a full
 360 degree rotation in 90 seconds while four ultrasonic range sensors and two thermal
 IR arrays sample once a second. Readings in the heat band that powered camera
@@ -77,6 +79,21 @@ the base the scanner sits in.
 | Click (under 5 s) | Start a scan |
 | Hold 10 s | Open the Wi-Fi setup portal |
 | Hold 30 s | Stop the device |
+
+## Build timeline
+
+Dates come from the photo and video timestamps and the commit history.
+
+| Date (2026) | Milestone |
+|---|---|
+| Late March | Firmware project started on the Pico 2 W |
+| April 1 to 2 | Pico 2 W headers soldered; bench supply and function generator set up for bring-up |
+| April 7 to 9 | Sensor bracket wired; first perfboards and the JST wiring harness built |
+| April 8 | First firmware commit: motor, ultrasonic, thermal IR, GPS, button, storage, Wi-Fi and Bluetooth modules |
+| April 14 | Electronics plate wired; motor rotation test recorded |
+| April 15 | Encrypted scan storage and radar plots added |
+| April 21 | Second perfboard revision; electronics plate close-up recorded |
+| April 27 to 28 | Scanner fully assembled; powered scan rotation and final assembly recorded; last firmware changes |
 
 ## Electrical design
 

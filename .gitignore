@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+snare_scan_data.json
+snare_live_scan_data.json
+snare_scan_data_export.json
+snare_radar_scan_data.json
+snare_radar_replay.html
+snare_filter_scan_data.json
+live_scan.json
+data.json
+wifi.json
+
+# Editor settings with machine-specific paths
+.vscode/settings.json
+
+# Generated code-graph output
+graphify-out/

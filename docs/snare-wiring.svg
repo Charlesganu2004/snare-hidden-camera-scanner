@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" width="1000" height="620" role="img" aria-labelledby="snw-title snw-desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="snw-title">SNARE signal wiring</title>
+  <desc id="snw-desc">Raspberry Pi Pico 2 W in the center. Left: NEO-6M GPS on UART0 (GP0, GP1), four HC-SR04 ultrasonic sensors (trigger and echo on GP8/9, GP16/17, GP20/21, GP26/27), a button on GP6 and a red LED on GP2. Right: TB6612FNG motor driver (AIN1 GP13, AIN2 GP12, PWMA GP14, STBY GP15) driving the DC gear motor, and a logic level shifter carrying two I2C buses (GP5/GP4 and GP18/GP19) to two Omron D6T-8L-09H thermal IR arrays.</desc>
+  <style>
+    .page { fill: #ffffff; stroke: #d1d9e0; }
+    .ink { fill: #1f2328; }
+    .muted { fill: #59636e; }
+    .tag { fill: #59636e; font-size: 10px; letter-spacing: 1px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #1f2328; }
+    .wire { fill: none; stroke: #59636e; stroke-width: 1.5; }
+    .input { fill: #f6f8fa; stroke: #afb8c1; stroke-width: 1; }
+    .driver { fill: #ffffff; stroke: #59636e; stroke-width: 1.5; }
+    .output { fill: #f6f8fa; stroke: #59636e; stroke-width: 1; stroke-dasharray: 0; }
+    .focal { fill: #ddf4ff; stroke: #0969da; stroke-width: 2; }
+    .mask { fill: #ffffff; }
+    .title { font-size: 15px; font-weight: 600; fill: #1f2328; }
+    .sub { font-size: 12px; fill: #59636e; }
+    .label { font-size: 12px; fill: #1f2328; }
+  </style>
+
+  <rect class="page" x="0.5" y="0.5" width="999" height="619" rx="8"/>
+
+  <!-- wires first, nodes after -->
+  <!-- GPS to Pico: elbow -->
+  <path class="wire" d="M280 92 H322 Q330 92 330 100 V168 Q330 176 338 176 H380"/>
+  <rect class="mask" x="290" y="110" width="36" height="18"/>
+  <text class="label" x="308" y="123" text-anchor="middle">UART</text>
+  <!-- Ultrasonics to Pico -->
+  <path class="wire" d="M280 252 H380"/>
+  <rect class="mask" x="284" y="226" width="92" height="18"/>
+  <text class="label" x="330" y="239" text-anchor="middle">4x trig/echo</text>
+  <!-- Controls to Pico -->
+  <path class="wire" d="M280 388 H380"/>
+  <rect class="mask" x="306" y="362" width="48" height="18"/>
+  <text class="label" x="330" y="375" text-anchor="middle">GPIO</text>
+  <!-- Pico to motor driver -->
+  <path class="wire" d="M620 148 H720"/>
+  <rect class="mask" x="632" y="122" width="76" height="18"/>
+  <text class="label" x="670" y="135" text-anchor="middle">PWM + dir</text>
+  <!-- Motor driver to motor -->
+  <path class="wire" d="M840 160 V200"/>
+  <rect class="mask" x="850" y="171" width="40" height="18"/>
+  <text class="label" x="852" y="184">drive</text>
+  <!-- Pico to level shifter -->
+  <path class="wire" d="M620 368 H720"/>
+  <rect class="mask" x="638" y="342" width="64" height="18"/>
+  <text class="label" x="670" y="355" text-anchor="middle">I2C x2</text>
+  <!-- Level shifter to D6T -->
+  <path class="wire" d="M840 432 V472"/>
+  <rect class="mask" x="850" y="443" width="72" height="18"/>
+  <text class="label" x="852" y="456">HV side</text>
+
+  <!-- Left column: inputs -->
+  <rect class="input" x="40" y="48" width="240" height="88" rx="6"/>
+  <text class="tag" x="56" y="68">INPUT</text>
+  <text class="title" x="56" y="88">NEO-6M GPS</text>
+  <text class="sub" x="56" y="106">UTC time + location per scan</text>
+  <text class="mono" xml:space="preserve" x="56" y="124">TX GP0  RX GP1  9600</text>
+
+  <rect class="input" x="40" y="184" width="240" height="136" rx="6"/>
+  <text class="tag" x="56" y="204">INPUT</text>
+  <text class="title" x="56" y="224">HC-SR04 ultrasonic x4</text>
+  <text class="mono" xml:space="preserve" x="56" y="246">1 TRIG GP8   ECHO GP9</text>
+  <text class="mono" xml:space="preserve" x="56" y="264">2 TRIG GP16  ECHO GP17</text>
+  <text class="mono" xml:space="preserve" x="56" y="282">3 TRIG GP20  ECHO GP21</text>
+  <text class="mono" xml:space="preserve" x="56" y="300">4 TRIG GP26  ECHO GP27</text>
+
+  <rect class="input" x="40" y="352" width="240" height="88" rx="6"/>
+  <text class="tag" x="56" y="372">INPUT / STATUS</text>
+  <text class="title" x="56" y="392">Button + LEDs</text>
+  <text class="mono" xml:space="preserve" x="56" y="410">BUTTON GP6  RED LED GP2</text>
+  <text class="sub" x="56" y="428">green = onboard Pico LED</text>
+
+  <!-- Center: Pico -->
+  <rect class="focal" x="380" y="128" width="240" height="288" rx="8"/>
+  <text class="tag" x="396" y="150">CONTROLLER</text>
+  <text class="title" x="396" y="172">Raspberry Pi Pico 2 W</text>
+  <text class="sub" x="396" y="190">MicroPython firmware</text>
+  <text class="label" x="396" y="226">Rotating scan loop</text>
+  <text class="label" x="396" y="250">Sensor angle + radar math</text>
+  <text class="label" x="396" y="274">Wi-Fi setup portal (AP)</text>
+  <text class="label" x="396" y="298">Live radar web page</text>
+  <text class="label" x="396" y="322">Encrypted scan storage</text>
+  <text class="label" x="396" y="346">USB + Wi-Fi JSON export</text>
+
+  <!-- Right column: drivers and outputs -->
+  <rect class="driver" x="720" y="48" width="240" height="112" rx="6"/>
+  <text class="tag" x="736" y="68">DRIVER</text>
+  <text class="title" x="736" y="88">TB6612FNG motor driver</text>
+  <text class="mono" xml:space="preserve" x="736" y="112">AIN1 GP13  AIN2 GP12</text>
+  <text class="mono" xml:space="preserve" x="736" y="132">PWMA GP14  STBY GP15</text>
+
+  <rect class="output" x="720" y="200" width="240" height="72" rx="6"/>
+  <text class="tag" x="736" y="220">OUTPUT</text>
+  <text class="title" x="736" y="240">DC gear motor</text>
+  <text class="sub" x="736" y="258">one scan rotation = 90 s</text>
+
+  <rect class="driver" x="720" y="320" width="240" height="112" rx="6"/>
+  <text class="tag" x="736" y="340">INTERFACE</text>
+  <text class="title" x="736" y="360">Logic level shifter</text>
+  <text class="mono" xml:space="preserve" x="736" y="384">IR1 SDA GP5   SCL GP4</text>
+  <text class="mono" xml:space="preserve" x="736" y="404">IR2 SDA GP18  SCL GP19</text>
+  <text class="sub" x="736" y="422">LV 3.3 V to HV sensor side</text>
+
+  <rect class="input" x="720" y="472" width="240" height="88" rx="6"/>
+  <text class="tag" x="736" y="492">INPUT</text>
+  <text class="title" x="736" y="512">Omron D6T-8L-09H x2</text>
+  <text class="sub" x="736" y="530">8-pixel thermal IR arrays</text>
+  <text class="sub" x="736" y="548">body-heat detection</text>
+
+  <!-- legend strip -->
+  <line x1="40" y1="580" x2="960" y2="580" stroke="#d1d9e0"/>
+  <text class="sub" x="40" y="602">Signal wiring only. Pin numbers come from config.py. Power wiring not shown.</text>
+</svg>

@@ -31,12 +31,19 @@ IR1_SCL = 4        # GP4 -> LV2 -> HV2 -> D6T SCL
 IR2_SDA = 18       # GP18 -> LV4 -> HV4 -> D6T SDA
 IR2_SCL = 19       # GP19 -> LV3 -> HV3 -> D6T SCL
 
-# --- GPS (NEO-6M) ---
-GPS_TX = 0         # GP0 -> GPS Tx
-GPS_RX = 1         # GP1 -> GPS Rx
+# --- GPS (NEO-6M or compatible UART GPS) ---
+# The GPS gives each scan package the UTC time and physical location of the device.
+GPS_UART = 0
+GPS_BAUDRATE = 9600
+GPS_READ_TIMEOUT_MS = 80
+GPS_TX = 0         # GP0 -> Pico UART TX, connect to GPS RX if the module needs commands
+GPS_RX = 1         # GP1 -> Pico UART RX, connect to GPS TX for NMEA data
 
 # --- Button ---
-BUTTON_PIN = 7     # GP7 -> momentary tactile button
+BUTTON_PIN = 6     # GP6 -> momentary tactile button
+SCAN_CLICK_MAX_SECONDS = 5
+SETUP_HOLD_TIME_SECONDS = 10
+STOP_HOLD_TIME_SECONDS = 30
 
 # --- LEDs ---
 RED_LED_PIN   = 2   # GP2 -> external Red LED
@@ -48,17 +55,26 @@ AP_SSID = "SNARE_Device_101"
 AP_PASSWORD = "12345678"
 WIRELESS_COUNTRY = "US"
 AP_CHANNEL = 6
+WIFI_CONNECT_TIMEOUT_SECONDS = 30
+SETUP_DOUBLE_PRESS_SECONDS = 1.0
 
 # --- Scan / graph settings ---
 # The scan cycle is set to the intended one minute and thirty second rotation.
+AUTO_SCAN_ON_BOOT = True
 ROTATION_TIME_SECONDS = 90
 SCAN_SAMPLE_INTERVAL_SECONDS = 1
 GRAPH_MAX_DISTANCE_CM = 500
 LIVE_SCAN_FILE = "live_scan.json"
 LIVE_SCAN_EXPORT_FILE = "snare_live_scan_data.json"
-LIVE_SCAN_HISTORY_LIMIT = 120
+RADAR_JSON_EXPORT_FILE = "snare_radar_scan_data.json"
+RADAR_REPLAY_EXPORT_FILE = "snare_radar_replay.html"
+FILTER_SCAN_EXPORT_FILE = "snare_filter_scan_data.json"
+# Live history is capped at 50 samples to match storage and keep RAM use predictable on the Pico.
+LIVE_SCAN_HISTORY_LIMIT = 50
 LIVE_TERMINAL_GRAPH_ENABLED = True
 LIVE_TERMINAL_GRAPH_INTERVAL_SECONDS = 3
+TERMINAL_RADAR_WIDTH = 61
+TERMINAL_RADAR_HEIGHT = 31
 USB_JSON_EXPORT_FILE = "snare_scan_data_export.json"
 
 # Sensor angles are offsets from the rotating forward scan line. These are based on
@@ -76,3 +92,6 @@ SENSOR_GEOMETRY = {
 # This local storage secret is used to encrypt scan data before it sits on the Pico.
 # This secret should be changed before deploying production hardware.
 STORAGE_SECRET = "secret"
+# Raw IR arrays are useful while debugging, but they make encrypted storage too large for Pico RAM.
+# The saved download keeps IR min/max/average/count summaries unless this is switched to True.
+STORE_RAW_IR_TEMPERATURES = False
